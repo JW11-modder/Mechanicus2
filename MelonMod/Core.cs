@@ -4,9 +4,11 @@ using Il2CppBulwarkStudios.Codex.Common;
 using Il2CppBulwarkStudios.Codex.Mission;
 using Il2CppBulwarkStudios.Codex.Skirmish;
 using Il2CppBulwarkStudios.Codex.Story;
+using Il2CppBulwarkStudios.Codex.TechTree;
 using Il2CppBulwarkStudios.Codex.Warmap;
 using Il2CppBulwarkStudios.Codex.World;
 using Il2CppBulwarkStudios.Core.ScalableSystem;
+using Il2CppBulwarkStudios.Core.Utils;
 using Il2CppRewired.Utils.Classes.Data;
 using MelonLoader;
 using MelonLoader.Preferences;
@@ -14,7 +16,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using static UnityEngine.Rendering.HighDefinition.DLSSPass;
 
-[assembly: MelonInfo(typeof(Mechanicus2Mod.Core), "jw11-modder.Mechanicus2Mod", "1.0.0", "jw11-modder", null)]
+[assembly: MelonInfo(typeof(Mechanicus2Mod.Core), "jw11-modder.Mechanicus2Mod", "1.0.2", "jw11-modder", null)]
 [assembly: MelonGame("BulwarkStudios", "Mechanicus2")]
 
 namespace Mechanicus2Mod
@@ -31,6 +33,7 @@ namespace Mechanicus2Mod
         private static MelonPreferences_Entry<bool> configInfiniteCog;
         private static MelonPreferences_Entry<bool> configNoAwakeing;
         private static MelonPreferences_Entry<bool> configMissionNoVigilance;
+        private static MelonPreferences_Entry<bool> configFreeUpgrades;
 
         private static MelonPreferences_Entry<float> configPlayerDamageMultiplier;
         //private static MelonPreferences_Entry<float> configPlayerDominionMultiplier;
@@ -124,6 +127,7 @@ namespace Mechanicus2Mod
             configInfiniteCog = ToggleCategory.CreateEntry<bool>("configInfiniteCog", false, "Seal of Omnissiah's Presence (Cognition doesn't decrease)");
             configNoAwakeing = ToggleCategory.CreateEntry<bool>("configNoAwakeing", false, "Rite of Noosphere Calming (No awakening for Necrons)");
             configMissionNoVigilance = ToggleCategory.CreateEntry<bool>("configMissionNoVigilance", false, "Incantation of Quiet Cog Workings (No vigilance increase for Necrons)");
+            configFreeUpgrades = ToggleCategory.CreateEntry<bool>("configFreeUpgrades", false, "Choral of Inspiration (No cost of character upgrades)");
 
             configPlayerDamageMultiplier = MultiplierFloatCategory.CreateEntry<float>("configPlayerDamageMultiplier", 1f, "Psalm of Righteous Fury (Player units damage multiplier)", validator: new ValueRange<float>(1f, 10f));            
             //configPlayerDominionMultiplier = MultiplierFloatCategory.CreateEntry<float>("configPlayerDominionMultiplier", 1f, "Memory of C'tan Hatred (Dominion gain multiplier)", validator: new ValueRange<float>(1f, 10f));
@@ -492,7 +496,7 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.value > 0)
                 {
-                    Log("Mission Awakening value: " + __instance.value);
+                    //Log("Mission Awakening value: " + __instance.value);
                     __instance.value = 0;
                 }
                 return true;
@@ -511,7 +515,7 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.GlobalAwakeningLevel > 0)
                 {
-                    Log("Global Awakening value: " + __instance.GlobalAwakeningLevel);
+                    //Log("Global Awakening value: " + __instance.GlobalAwakeningLevel);
                     __instance.GlobalAwakeningLevel = 0;
                 }
                 return true;
@@ -530,7 +534,7 @@ namespace Mechanicus2Mod
                 }
                 if (__result > 0)
                 {
-                    Log("Global awakening state value: " + __result);
+                    //Log("Global awakening state value: " + __result);
                     __result = 0;
                 }
             }
@@ -569,7 +573,35 @@ namespace Mechanicus2Mod
             }
         }
 
-        //configPlayerCognitionMultiplier
+        // configFreeUpgrades
+
+        [HarmonyPatch(typeof(CharacterTechTree), nameof(CharacterTechTree.GetNodeInstance))]
+        class CharacterTechTreePatch1
+        {
+            static bool Prefix(ref CharacterTechTree __instance, ref CharacterTechTreeNode node)
+            {
+                if (!configFreeUpgrades.Value)
+                {
+                    return true;
+                }
+                CharacterTechTreeEffectNode effectNode = node.TryCast<CharacterTechTreeEffectNode>();
+                if (effectNode != null)
+                {
+                    effectNode.cost = 0;
+                    node = effectNode;
+                }
+                CharacterTechTreeStartNode startNode = node.TryCast<CharacterTechTreeStartNode>();
+                if (startNode != null)
+                {
+                    startNode.cost = 0;
+                    node = startNode;
+                }
+                return true;
+            }
+        }
+
+        // configPlayerCognitionMultiplier
+
         [HarmonyPatch(typeof(StoryEventChoiceEffectCognitionModifier), nameof(StoryEventChoiceEffectCognitionModifier.ApplyStoryRewardEffect))]
         class EffectCognitionModifierPatch1
         {
@@ -579,7 +611,7 @@ namespace Mechanicus2Mod
                 {
                     return true;
                 }
-                Log("Original choice effect cognition modifier: " + __instance.value);
+                //Log("Original choice effect cognition modifier: " + __instance.value);
                 if (__instance.value > 0)
                     __instance.value = __instance.value * configPlayerCognitionMultiplier.Value;
                 else
@@ -603,7 +635,7 @@ namespace Mechanicus2Mod
             }
         }
 
-        //configMissionRewardMultiplier
+        // configMissionRewardMultiplier
 
         [HarmonyPatch(typeof(MissionRewardEffectResource), nameof(MissionRewardEffectResource.ApplyReward))]
         class MissionRewardEffectResourcePatch1
@@ -616,7 +648,7 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.value > 0)
                 {
-                    Log("Mission reward original value: " + __instance.value);
+                    //Log("Mission reward original value: " + __instance.value);
                     __instance.value = Mathf.RoundToInt(__instance.value * configMissionRewardMultiplier.Value);
                 }
                 return true;
@@ -634,7 +666,7 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.value > 0)
                 {
-                    Log("Mission investigation reward original value: " + __instance.value);
+                    //Log("Mission investigation reward original value: " + __instance.value);
                     __instance.value = Mathf.RoundToInt(__instance.value * configMissionRewardMultiplier.Value);
                 }
                 return true;
@@ -642,6 +674,7 @@ namespace Mechanicus2Mod
         }
 
         // configMissionNoVigilance
+
         [HarmonyPatch(typeof(InvestigationEffectMissionVigilanceModifier), nameof(InvestigationEffectMissionVigilanceModifier.ApplyInvestigationEffect))]
         class InvestigationEffectMissionVigilanceModifierPatch1
         {
@@ -653,14 +686,13 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.value > 0 && __instance.modifier == 0)
                 {
-                    Log("Mission investigation vigilance original value: " + __instance.value);
+                    //Log("Mission investigation vigilance original value: " + __instance.value);
                     __instance.value = 0;
                 }
                 return true;
             }
         }
 
-        // Il2CppBulwarkStudios.Codex.Common.NecronVigilanceInstance
         [HarmonyPatch(typeof(NecronVigilanceInstance), nameof(NecronVigilanceInstance.add_onNecronVigilanceLevelChanged))]
         class NecronVigilanceInstancePatch1
         {
@@ -672,7 +704,7 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.VigilanceLevel > 0)
                 {
-                    Log("Vigilance original value prefix: " + __instance.VigilanceLevel);
+                    //Log("Vigilance original value prefix: " + __instance.VigilanceLevel);
                     __instance.VigilanceLevel = 0;
                 }
                 return true;
@@ -685,7 +717,7 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.VigilanceLevel > 0)
                 {
-                    Log("Vigilance original value postfix: " + __instance.VigilanceLevel);
+                    //Log("Vigilance original value postfix: " + __instance.VigilanceLevel);
                     __instance.VigilanceLevel = 0;
                 }
             }
@@ -702,7 +734,7 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.VigilanceLevel > 0)
                 {
-                    Log("Vigilance original value prefix: " + __instance.VigilanceLevel);
+                    //Log("Vigilance original value prefix: " + __instance.VigilanceLevel);
                     __instance.VigilanceLevel = 0;
                 }
                 return true;
@@ -715,7 +747,7 @@ namespace Mechanicus2Mod
                 }
                 if (__instance.VigilanceLevel > 0)
                 {
-                    Log("Vigilance original value postfix: " + __instance.VigilanceLevel);
+                    //Log("Vigilance original value postfix: " + __instance.VigilanceLevel);
                     __instance.VigilanceLevel = 0;
                 }
             }
